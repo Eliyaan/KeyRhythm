@@ -1,4 +1,5 @@
 import gg
+import abc
 
 struct App {
 mut:
@@ -6,6 +7,7 @@ mut:
 }
 
 fn main() {
+	println(abc.create_staff('tunes/beams.abc')!)
 /*
 	midi_device := "/dev/midi1"
 	mut packet := [3]u8{}

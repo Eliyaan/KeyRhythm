@@ -1,21 +1,23 @@
+module abc
+
 import os
 import gg
 
 enum Pitches {
-	CC
-	DD
-	EE
-	FF
-	GG
-	AA
-	BB
-	C
-	D
-	E
-	F
-	G
-	A
-	B
+	_cc
+	_dd
+	_ee
+	_ff
+	_gg
+	_aa
+	_bb
+	_c
+	_d
+	_e
+	_f
+	_g
+	_a
+	_b
 	c
 	d
 	e
@@ -32,7 +34,7 @@ enum Pitches {
 	bb
 }
 
-struct Lengths {
+enum Lengths {
 	thirtysecond // demi-semi-quaver
 	sixteenth // semi-quavers
 	eighth	// quavers
@@ -43,8 +45,9 @@ struct Lengths {
 }
 
 struct Note {
+mut:
 	pitch Pitches
-	factor int // relative to the length of the group
+	factor int = 1 // relative to the length of the group
 	divide bool // if the factor divides or multiplies
 }
 
@@ -53,10 +56,12 @@ enum Bars {
 }
 
 struct Beam {
+mut:
 	notes []Note
 }
 
 struct Group {
+mut:
 	length string
 	left_bar Bars
 	right_bar Bars
@@ -64,27 +69,29 @@ struct Group {
 }
 
 struct Staff {
+mut:
 	title string
 	meter string
 	key string
 	composer string
-	staff []Group
+	groups []Group
 }
 
-fn create_staff(file_name string) Staff! {
+pub fn create_staff(file_name string) !Staff {
 	file := os.read_bytes(file_name)!
+	mut notes := false // in the part with the notes
 	mut staff := Staff{}
-	mut notes := false // the part with the notes
 	mut note := Note{}
+	mut beam := Beam{}
 	mut group := Group{}
 
 	mut i := 0
 	for i < file.len {
 		if notes {
-			match staff[i] {
+			match file[i] {
 				`a`...`g` {
-					if staff[i+1] == `'` {
-						note.pitch = match staff[i] {
+					if file[i+1] == `'` {
+						note.pitch = match file[i] {
 							`a` { .aa } 
 							`b` { .bb } 
 							`c` { .cc } 
@@ -92,10 +99,11 @@ fn create_staff(file_name string) Staff! {
 							`e` { .ee } 
 							`f` { .ff } 
 							`g` { .gg } 
+							else { return error('${file[i]}') }
 						}
 						i++ // '
 					} else {
-						note.pitch = match staff[i] {
+						note.pitch = match file[i] {
 							`a` { .a } 
 							`b` { .b } 
 							`c` { .c } 
@@ -103,25 +111,26 @@ fn create_staff(file_name string) Staff! {
 							`e` { .e } 
 							`f` { .f } 
 							`g` { .g } 
+							else { return error('${file[i]}') }
 						}
 					}
 					i++ // letter
 					
-					match staff[i] {
+					match file[i] {
 						`/` {
 							i++ // /
 							note.divide = true
-							note.length = match staff[i] {
+							note.factor = match file[i] {
 								`1`...`9` {
-									match staff[i + 1] {
+									match file[i + 1] {
 										`1`...`9` {
 											i++
 											i++
-											int(staff[i-2]) * 10 + int(staff[i-1])
+											int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
 										}
 										else {
 											i++
-											int(staff[i-1])
+											int(file[i-1] - 48)
 										}
 									}
 								}
@@ -131,53 +140,131 @@ fn create_staff(file_name string) Staff! {
 							}
 						}
 						`1`...`9` {
-							node.divide = false
-							node.length = match staff[i + 1] {
+							note.divide = false
+							note.factor = match file[i + 1] {
 								`1`...`9` {
 									i++
 									i++
-									int(staff[i-2]) * 10 + int(staff[i-1])
+									int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
 								}
 								else {
 									i++
-									int(staff[i-1])
+									int(file[i-1] - 48)
 								}
 							}
 						}
+						else {}
 					}
 					
-					if staff[i] == ` ` {
-						
-					}
-					
+					beam.notes << note
+					note = Note{}
 				}
 				`A`...`G` {
-						note.pitch = match staff[i] {
-							`A` { .AA } 
-							`B` { .BB } 
-							`C` { .CC } 
-							`D` { .DD } 
-							`E` { .EE } 
-							`F` { .FF } 
-							`G` { .GG } 
+					if file[i+1] == `,` {
+						note.pitch = match file[i] {
+							`A` { ._aa } 
+							`B` { ._bb } 
+							`C` { ._cc } 
+							`D` { ._dd } 
+							`E` { ._ee } 
+							`F` { ._ff } 
+							`G` { ._gg } 
+							else { return error('${file[i]}') }
 						}
+						i++ // '
+					} else {
+						note.pitch = match file[i] {
+							`A` { ._a } 
+							`B` { ._b } 
+							`C` { ._c } 
+							`D` { ._d } 
+							`E` { ._e } 
+							`F` { ._f } 
+							`G` { ._g } 
+							else { return error('${file[i]}') }
+						}
+					}
+					i++ // letter
+					
+					match file[i] {
+						`/` {
+							i++ // /
+							note.divide = true
+							note.factor = match file[i] {
+								`1`...`9` {
+									match file[i + 1] {
+										`1`...`9` {
+											i++
+											i++
+											int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+										}
+										else {
+											i++
+											int(file[i-1] - 48)
+										}
+									}
+								}
+								else {
+									2
+								}
+							}
+						}
+						`1`...`9` {
+							note.divide = false
+							note.factor = match file[i + 1] {
+								`1`...`9` {
+									i++
+									i++
+									int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+								}
+								else {
+									i++
+									int(file[i-1] - 48)
+								}
+							}
+						}
+						else {}
+					}
+					
+					beam.notes << note
+					note = Note{}
+				}
+				`|`, `:` {
+					if file[i+1] == `|` {
+						i++
+					} else if file[i+1] == `:` {
+						i++
+					}
+					staff.groups << group
+					l := group.length
+					group = Group{length: l}
+					i++
+				}
+				` ` {
+					i++ // ' '
+					if beam.notes.len > 0 {
+						group.beams << beam
+						beam = Beam{}
+					}
 				}
 				else {
-					println(staff[i].ascii_str())
+					println(file[i].ascii_str())
+					i++
 				}
 			}
 		} else { 
-			match staff[i] {
+			match file[i] {
 				`X` {
-					for staff[i - 1] != `\n` {
+					i++
+					for file[i - 1] != `\n` {
 						i++
 					}
 				}
 				`M` {
 					i++ // T
 					i++ // :
-					for staff[i] != `\n` {
-						staff.meter += staff[i].ascii_str()
+					for file[i] != `\n` {
+						staff.meter += file[i].ascii_str()
 						i++
 					}
 					i++ // \n
@@ -185,8 +272,8 @@ fn create_staff(file_name string) Staff! {
 				`L` {
 					i++ // T
 					i++ // :
-					for staff[i] != `\n` {
-						group.length += staff[i].ascii_str()
+					for file[i] != `\n` {
+						group.length += file[i].ascii_str()
 						i++
 					}
 					i++ // \n
@@ -194,8 +281,8 @@ fn create_staff(file_name string) Staff! {
 				`K` {
 					i++ // T
 					i++ // :
-					for staff[i] != `\n` {
-						staff.key += staff[i].ascii_str()
+					for file[i] != `\n` {
+						staff.key += file[i].ascii_str()
 						i++
 					}
 					i++ // \n
@@ -204,16 +291,18 @@ fn create_staff(file_name string) Staff! {
 				`T` {
 					i++ // T
 					i++ // :
-					for staff[i] != `\n` {
-						staff.title += staff[i].ascii_str()
+					for file[i] != `\n` {
+						staff.title += file[i].ascii_str()
 						i++
 					}
 					i++ // \n
 				}
 				else {
-					println(staff[i].ascii_str())
+					println(file[i].ascii_str())
+					i++
 				}
 			}
 		}
 	}
+	return staff
 }
