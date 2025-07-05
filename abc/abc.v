@@ -34,6 +34,8 @@ enum Pitches {
 	bb
 }
 
+const nb_pitches = 28
+
 enum Lengths {
 	thirtysecond // demi-semi-quaver
 	sixteenth // semi-quavers
@@ -66,15 +68,71 @@ mut:
 	left_bar Bars
 	right_bar Bars
 	beams []Beam
+	new_line bool
 }
 
-struct Staff {
+pub struct Staff {
 mut:
 	title string
 	meter string
 	key string
 	composer string
 	groups []Group
+	px_height f32 = 100.0
+}
+
+const radius = f32(4)
+const black = gg.Color{0,0,0,255}
+
+fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
+	px_whole_length := f32(30)
+	n_length := if n.divide {
+		px_whole_length / n.factor
+	} else {
+		px_whole_length * n.factor
+	}
+
+	ctx.draw_circle_filled(x, y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth, radius, black)
+
+	next_x := x + n_length
+	return next_x
+}
+
+fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
+	mut next_x := x
+
+	for n in b.notes {
+		next_x = n.draw(ctx, next_x, y, x_end, staff_heigth)
+	}
+	
+	return next_x
+}
+
+fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_start f32) (f32, f32) {
+	mut next_x := x
+	mut next_y := y
+	if g.new_line {
+		next_y += staff_heigth
+		next_x = x_start
+	}
+	old_x := next_x
+
+	for b in g.beams {
+		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth)
+	}
+	
+		
+
+	return next_x, next_y
+}
+
+pub fn (s Staff) draw(ctx gg.Context, x f32, y f32, x_end f32) {
+	mut next_x := x
+	mut next_y := y  // top of the staff
+	
+	for g in s.groups {
+		next_x, next_y = g.draw(ctx, next_x, next_y, x_end, s.px_height, x)
+	}
 }
 
 pub fn create_staff(file_name string) !Staff {
@@ -246,6 +304,10 @@ pub fn create_staff(file_name string) !Staff {
 						group.beams << beam
 						beam = Beam{}
 					}
+				}
+				`\n` {
+					group.new_line = true
+					i++
 				}
 				else {
 					println(file[i].ascii_str())

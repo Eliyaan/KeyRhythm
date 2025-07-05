@@ -4,10 +4,10 @@ import abc
 struct App {
 mut:
 	ctx &gg.Context = unsafe { nil }
+	staff abc.Staff
 }
 
 fn main() {
-	println(abc.create_staff('tunes/beams.abc')!)
 /*
 	midi_device := "/dev/midi1"
 	mut packet := [3]u8{}
@@ -21,12 +21,14 @@ fn main() {
 */
 
 	mut app := &App{}
+	app.staff = abc.create_staff('tunes/notes.abc')!
 	app.ctx = gg.new_context(
 		create_window: true
 		user_data: app
 		frame_fn: on_frame
 		event_fn: on_event
-		sample_count: 2
+		sample_count: 4
+		bg_color: gg.Color{255, 255, 255, 255}
 	)
 	
 	app.ctx.run()
@@ -34,7 +36,7 @@ fn main() {
 
 fn on_frame(mut app App) {
 	app.ctx.begin()
-
+	app.staff.draw(app.ctx, 50.0, 50.0, 800.0)
 	app.ctx.end()
 }
 
