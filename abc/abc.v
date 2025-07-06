@@ -35,6 +35,13 @@ enum Pitches {
 }
 
 const nb_pitches = 28
+const staff_lines = [
+	Pitches._e
+	._g
+	._b
+	.d
+	.f
+]!
 
 enum Lengths {
 	thirtysecond // demi-semi-quaver
@@ -84,7 +91,7 @@ mut:
 const radius = f32(4)
 const black = gg.Color{0,0,0,255}
 
-fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
+fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32, f32) {
 	px_whole_length := f32(30)
 	n_length := if n.divide {
 		px_whole_length / n.factor
@@ -92,17 +99,40 @@ fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 
 		px_whole_length * n.factor
 	}
 
-	ctx.draw_circle_filled(x, y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth, radius, black)
+	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
+	ctx.draw_circle_filled(x, note_y, radius, black)
 
 	next_x := x + n_length
-	return next_x
+	return next_x, note_y
 }
 
 fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
 	mut next_x := x
+	mut note_y := y
+
+	tail_size := staff_heigth / f32(nb_pitches) * 7
+	y_middle := y + staff_heigth / f32(nb_pitches) * 15
 
 	for n in b.notes {
-		next_x = n.draw(ctx, next_x, y, x_end, staff_heigth)
+		tail_x := if int(n.pitch) >= int(Pitches._b) {
+			next_x - radius / 2
+		} else {
+			next_x + radius / 2
+		}
+		next_x, note_y = n.draw(ctx, next_x, y, x_end, staff_heigth)
+		if int(n.pitch) >= int(Pitches._b) {
+			if int(n.pitch) >= int(Pitches.b) {
+				ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+			} else {
+				ctx.draw_line(tail_x, note_y, tail_x, note_y + tail_size, black)
+			}
+		} else {
+			if int(n.pitch) <= int(Pitches._bb) {
+				ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+			} else {
+				ctx.draw_line(tail_x, note_y, tail_x, note_y - tail_size, black)
+			}
+		}
 	}
 	
 	return next_x
@@ -121,7 +151,10 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth)
 	}
 	
-		
+	for p in staff_lines {
+		line_y := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
+		ctx.draw_line(old_x, line_y, next_x, line_y, black)
+	}	
 
 	return next_x, next_y
 }
