@@ -1,5 +1,6 @@
 module abc
 
+import math
 import os
 import gg
 
@@ -91,19 +92,22 @@ mut:
 const radius = f32(4)
 const black = gg.Color{0,0,0,255}
 
-fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32, f32) {
-	px_whole_length := f32(30)
-	n_length := if n.divide {
-		px_whole_length / n.factor
+fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32, f32, int) {
+	px_crochet_length := f32(30)
+	true_factor := if n.divide {
+		1.0 / n.factor
 	} else {
-		px_whole_length * n.factor
+		n.factor
 	}
+	n_length := px_crochet_length * true_factor
+
+	nb_tails := int(math.round(math.log2(true_factor))
 
 	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 	ctx.draw_circle_filled(x, note_y, radius, black)
 
 	next_x := x + n_length
-	return next_x, note_y
+	return next_x, note_y, nb_tails
 }
 
 fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
@@ -119,18 +123,20 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 
 		} else {
 			next_x + radius / 2
 		}
-		next_x, note_y = n.draw(ctx, next_x, y, x_end, staff_heigth)
-		if int(n.pitch) >= int(Pitches._b) {
-			if int(n.pitch) >= int(Pitches.b) {
-				ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+		next_x, note_y, nb_tails = n.draw(ctx, next_x, y, x_end, staff_heigth)
+		if nb_tails >= 1 {
+			if int(n.pitch) >= int(Pitches._b) {
+				if int(n.pitch) >= int(Pitches.b) {
+					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+				} else {
+					ctx.draw_line(tail_x, note_y, tail_x, note_y + tail_size, black)
+				}
 			} else {
-				ctx.draw_line(tail_x, note_y, tail_x, note_y + tail_size, black)
-			}
-		} else {
-			if int(n.pitch) <= int(Pitches._bb) {
-				ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
-			} else {
-				ctx.draw_line(tail_x, note_y, tail_x, note_y - tail_size, black)
+				if int(n.pitch) <= int(Pitches._bb) {
+					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+				} else {
+					ctx.draw_line(tail_x, note_y, tail_x, note_y - tail_size, black)
+				}
 			}
 		}
 	}
