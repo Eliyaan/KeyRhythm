@@ -37,26 +37,26 @@ enum Pitches {
 
 const nb_pitches = 28
 const staff_lines = [
-	Pitches._e
-	._g
-	._b
-	.d
-	.f
+	Pitches._e,
+	._g,
+	._b,
+	.d,
+	.f,
 ]!
 
 enum Lengths {
 	thirtysecond // demi-semi-quaver
-	sixteenth // semi-quavers
-	eighth	// quavers
-	quarter	// crochet
-	half	// minim
-	whole   // semibreve
-	doublewhole // breve
+	sixteenth    // semi-quavers
+	eighth       // quavers
+	quarter      // crochet
+	half         // minim
+	whole        // semibreve
+	doublewhole  // breve
 }
 
 struct Note {
 mut:
-	pitch Pitches
+	pitch  Pitches
 	factor int = 1 // relative to the length of the group
 	divide bool // if the factor divides or multiplies
 }
@@ -72,36 +72,36 @@ mut:
 
 struct Group {
 mut:
-	length string
-	left_bar Bars
+	length    string
+	left_bar  Bars
 	right_bar Bars
-	beams []Beam
-	new_line bool
+	beams     []Beam
+	new_line  bool
 }
 
 pub struct Staff {
 mut:
-	title string
-	meter string
-	key string
-	composer string
-	groups []Group
+	title     string
+	meter     string
+	key       string
+	composer  string
+	groups    []Group
 	px_height f32 = 100.0
 }
 
 const radius = f32(4)
-const black = gg.Color{0,0,0,255}
+const black = gg.Color{0, 0, 0, 255}
 
 fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32, f32, int) {
-	px_crochet_length := f32(30)
-	true_factor := if n.divide {
-		1.0 / n.factor
+	px_whole_length := f32(120)
+	true_factor := if n.divide { // TODO: replace with len from the file
+		0.125 / f32(n.factor)
 	} else {
-		n.factor
+		0.125 * f32(n.factor)
 	}
-	n_length := px_crochet_length * true_factor
+	n_length := px_whole_length * true_factor
 
-	nb_tails := int(math.round(math.log2(true_factor))
+	nb_tails := -int(math.round(math.log2(true_factor)))
 
 	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 	ctx.draw_circle_filled(x, note_y, radius, black)
@@ -113,25 +113,44 @@ fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32
 fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
 	mut next_x := x
 	mut note_y := y
+	mut nb_tails := 0
+	mut old_x := x
 
 	tail_size := staff_heigth / f32(nb_pitches) * 7
 	y_middle := y + staff_heigth / f32(nb_pitches) * 15
+	y_top := y + staff_heigth / f32(nb_pitches) * 9
+	y_bot := y + staff_heigth / f32(nb_pitches) * 21
 
 	for n in b.notes {
-		tail_x := if int(n.pitch) >= int(Pitches._b) {
-			next_x - radius / 2
-		} else {
-			next_x + radius / 2
-		}
+		old_x = next_x
 		next_x, note_y, nb_tails = n.draw(ctx, next_x, y, x_end, staff_heigth)
+		if int(n.pitch) >= int(Pitches._b) {
+			for i in 0 .. int(n.pitch) - int(Pitches.f) - 1 { // little lines
+				if i % 2 == 0 {
+					line_y := y_top - f32(i) / f32(nb_pitches) * staff_heigth
+					ctx.draw_line(old_x - 1.5 * radius, line_y, old_x + 1.5 * radius,
+						line_y, black)
+				}
+			}
+		} else {
+			for i in 0 .. int(Pitches._e) - int(n.pitch) - 1 { // little lines
+				if i % 2 == 0 {
+					line_y := y_bot + f32(i) / f32(nb_pitches) * staff_heigth
+					ctx.draw_line(old_x - 1.5 * radius, line_y, old_x + 1.5 * radius,
+						line_y, black)
+				}
+			}
+		}
 		if nb_tails >= 1 {
 			if int(n.pitch) >= int(Pitches._b) {
+				tail_x := old_x - radius / 2
 				if int(n.pitch) >= int(Pitches.b) {
 					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
 				} else {
 					ctx.draw_line(tail_x, note_y, tail_x, note_y + tail_size, black)
 				}
 			} else {
+				tail_x := old_x + radius / 2
 				if int(n.pitch) <= int(Pitches._bb) {
 					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
 				} else {
@@ -140,7 +159,7 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 
 			}
 		}
 	}
-	
+
 	return next_x
 }
 
@@ -156,19 +175,19 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 	for b in g.beams {
 		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth)
 	}
-	
+
 	for p in staff_lines {
 		line_y := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
-		ctx.draw_line(old_x, line_y, next_x, line_y, black)
-	}	
+		ctx.draw_line(old_x - 2 * radius, line_y, next_x, line_y, black)
+	}
 
 	return next_x, next_y
 }
 
 pub fn (s Staff) draw(ctx gg.Context, x f32, y f32, x_end f32) {
 	mut next_x := x
-	mut next_y := y  // top of the staff
-	
+	mut next_y := y // top of the staff
+
 	for g in s.groups {
 		next_x, next_y = g.draw(ctx, next_x, next_y, x_end, s.px_height, x)
 	}
@@ -187,32 +206,32 @@ pub fn create_staff(file_name string) !Staff {
 		if notes {
 			match file[i] {
 				`a`...`g` {
-					if file[i+1] == `'` {
+					if file[i + 1] == `'` {
 						note.pitch = match file[i] {
-							`a` { .aa } 
-							`b` { .bb } 
-							`c` { .cc } 
-							`d` { .dd } 
-							`e` { .ee } 
-							`f` { .ff } 
-							`g` { .gg } 
+							`a` { .aa }
+							`b` { .bb }
+							`c` { .cc }
+							`d` { .dd }
+							`e` { .ee }
+							`f` { .ff }
+							`g` { .gg }
 							else { return error('${file[i]}') }
 						}
 						i++ // '
 					} else {
 						note.pitch = match file[i] {
-							`a` { .a } 
-							`b` { .b } 
-							`c` { .c } 
-							`d` { .d } 
-							`e` { .e } 
-							`f` { .f } 
-							`g` { .g } 
+							`a` { .a }
+							`b` { .b }
+							`c` { .c }
+							`d` { .d }
+							`e` { .e }
+							`f` { .f }
+							`g` { .g }
 							else { return error('${file[i]}') }
 						}
 					}
 					i++ // letter
-					
+
 					match file[i] {
 						`/` {
 							i++ // /
@@ -223,11 +242,11 @@ pub fn create_staff(file_name string) !Staff {
 										`1`...`9` {
 											i++
 											i++
-											int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+											int(file[i - 2] - 48) * 10 + int(file[i - 1] - 48)
 										}
 										else {
 											i++
-											int(file[i-1] - 48)
+											int(file[i - 1] - 48)
 										}
 									}
 								}
@@ -242,47 +261,47 @@ pub fn create_staff(file_name string) !Staff {
 								`1`...`9` {
 									i++
 									i++
-									int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+									int(file[i - 2] - 48) * 10 + int(file[i - 1] - 48)
 								}
 								else {
 									i++
-									int(file[i-1] - 48)
+									int(file[i - 1] - 48)
 								}
 							}
 						}
 						else {}
 					}
-					
+
 					beam.notes << note
 					note = Note{}
 				}
 				`A`...`G` {
-					if file[i+1] == `,` {
+					if file[i + 1] == `,` {
 						note.pitch = match file[i] {
-							`A` { ._aa } 
-							`B` { ._bb } 
-							`C` { ._cc } 
-							`D` { ._dd } 
-							`E` { ._ee } 
-							`F` { ._ff } 
-							`G` { ._gg } 
+							`A` { ._aa }
+							`B` { ._bb }
+							`C` { ._cc }
+							`D` { ._dd }
+							`E` { ._ee }
+							`F` { ._ff }
+							`G` { ._gg }
 							else { return error('${file[i]}') }
 						}
 						i++ // '
 					} else {
 						note.pitch = match file[i] {
-							`A` { ._a } 
-							`B` { ._b } 
-							`C` { ._c } 
-							`D` { ._d } 
-							`E` { ._e } 
-							`F` { ._f } 
-							`G` { ._g } 
+							`A` { ._a }
+							`B` { ._b }
+							`C` { ._c }
+							`D` { ._d }
+							`E` { ._e }
+							`F` { ._f }
+							`G` { ._g }
 							else { return error('${file[i]}') }
 						}
 					}
 					i++ // letter
-					
+
 					match file[i] {
 						`/` {
 							i++ // /
@@ -293,11 +312,11 @@ pub fn create_staff(file_name string) !Staff {
 										`1`...`9` {
 											i++
 											i++
-											int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+											int(file[i - 2] - 48) * 10 + int(file[i - 1] - 48)
 										}
 										else {
 											i++
-											int(file[i-1] - 48)
+											int(file[i - 1] - 48)
 										}
 									}
 								}
@@ -312,29 +331,31 @@ pub fn create_staff(file_name string) !Staff {
 								`1`...`9` {
 									i++
 									i++
-									int(file[i-2] - 48) * 10 + int(file[i-1] - 48)
+									int(file[i - 2] - 48) * 10 + int(file[i - 1] - 48)
 								}
 								else {
 									i++
-									int(file[i-1] - 48)
+									int(file[i - 1] - 48)
 								}
 							}
 						}
 						else {}
 					}
-					
+
 					beam.notes << note
 					note = Note{}
 				}
 				`|`, `:` {
-					if file[i+1] == `|` {
+					if file[i + 1] == `|` {
 						i++
-					} else if file[i+1] == `:` {
+					} else if file[i + 1] == `:` {
 						i++
 					}
 					staff.groups << group
 					l := group.length
-					group = Group{length: l}
+					group = Group{
+						length: l
+					}
 					i++
 				}
 				` ` {
@@ -353,7 +374,7 @@ pub fn create_staff(file_name string) !Staff {
 					i++
 				}
 			}
-		} else { 
+		} else {
 			match file[i] {
 				`X` {
 					i++
