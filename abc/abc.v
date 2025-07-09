@@ -3,6 +3,7 @@ module abc
 import math
 import os
 import gg
+import gx
 
 enum Pitches {
 	_cc
@@ -63,6 +64,7 @@ mut:
 
 enum Bars {
 	single
+	double
 }
 
 struct Beam {
@@ -73,16 +75,17 @@ mut:
 struct Group {
 mut:
 	length    f32 = 1.0/8.0
-	left_bar  Bars
+//	left_bar  Bars
 	right_bar Bars
 	beams     []Beam
 	new_line  bool
+	meter     string
 }
 
 pub struct Staff {
 mut:
 	title     string
-	meter     string
+//	meter     string
 	key       string
 	composer  string
 	groups    []Group
@@ -175,9 +178,25 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 	}
 	old_x := next_x
 
+	if g.new_line {
+		ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
+		next_x += 50.0
+		ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gx.TextCfg{})
+		next_x += 50.0
+	}
+
 	for b in g.beams {
 		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth, g.length)
 	}
+
+	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
+	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
+	ctx.draw_line(next_x, y_top, next_x, y_bot, black) 
+	if g.right_bar == .double {
+		next_x += 5
+		ctx.draw_line(next_x, y_top, next_x, y_bot, black) 
+	}
+	next_x += 2 * radius
 
 	for p in staff_lines {
 		line_y := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
@@ -188,8 +207,11 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 }
 
 pub fn (s Staff) draw(ctx gg.Context, x f32, y f32, x_end f32) {
+	ctx.draw_text(int(x), int(y), s.title, gx.TextCfg{})
 	mut next_x := x
-	mut next_y := y // top of the staff
+	// top of the staff
+	mut next_y := y - s.px_height  // first group is new line
+
 
 	for g in s.groups {
 		next_x, next_y = g.draw(ctx, next_x, next_y, x_end, s.px_height, x)
@@ -202,7 +224,7 @@ pub fn create_staff(file_name string) !Staff {
 	mut staff := Staff{}
 	mut note := Note{}
 	mut beam := Beam{}
-	mut group := Group{}
+	mut group := Group{new_line: true}
 
 	mut i := 0
 	for i < file.len {
@@ -349,15 +371,18 @@ pub fn create_staff(file_name string) !Staff {
 					note = Note{}
 				}
 				`|`, `:` {
-					if file[i + 1] == `|` {
+					if file[i + 1] == `]` {
+						group.right_bar = .double
 						i++
 					} else if file[i + 1] == `:` {
 						i++
 					}
 					staff.groups << group
 					l := group.length
+					m := group.meter
 					group = Group{
 						length: l
+						meter: m
 					}
 					i++
 				}
@@ -389,7 +414,7 @@ pub fn create_staff(file_name string) !Staff {
 					i++ // T
 					i++ // :
 					for file[i] != `\n` {
-						staff.meter += file[i].ascii_str()
+						group.meter += file[i].ascii_str()
 						i++
 					}
 					i++ // \n
