@@ -72,7 +72,7 @@ mut:
 
 struct Group {
 mut:
-	length    string
+	length    f32 = 1.0/8.0
 	left_bar  Bars
 	right_bar Bars
 	beams     []Beam
@@ -92,16 +92,19 @@ mut:
 const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
-fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32, f32, int) {
+fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_length f32) (f32, f32, int) {
 	px_whole_length := f32(120)
-	true_factor := if n.divide { // TODO: replace with len from the file
-		0.125 / f32(n.factor)
+	true_factor := if n.divide {
+		g_length / f32(n.factor)
 	} else {
-		0.125 * f32(n.factor)
+		g_length * f32(n.factor)
 	}
 	n_length := px_whole_length * true_factor
 
-	nb_tails := -int(math.round(math.log2(true_factor)))
+	mut nb_tails := -int(math.round(math.log2(true_factor * 2)))
+	if nb_tails == 0 {
+		nb_tails = 1
+	}
 
 	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 	ctx.draw_circle_filled(x, note_y, radius, black)
@@ -110,7 +113,7 @@ fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) (f32
 	return next_x, note_y, nb_tails
 }
 
-fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 {
+fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_length f32) f32 {
 	mut next_x := x
 	mut note_y := y
 	mut nb_tails := 0
@@ -123,7 +126,7 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32) f32 
 
 	for n in b.notes {
 		old_x = next_x
-		next_x, note_y, nb_tails = n.draw(ctx, next_x, y, x_end, staff_heigth)
+		next_x, note_y, nb_tails = n.draw(ctx, next_x, y, x_end, staff_heigth, g_length)
 		if int(n.pitch) >= int(Pitches._b) {
 			for i in 0 .. int(n.pitch) - int(Pitches.f) - 1 { // little lines
 				if i % 2 == 0 {
@@ -173,7 +176,7 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 	old_x := next_x
 
 	for b in g.beams {
-		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth)
+		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth, g.length)
 	}
 
 	for p in staff_lines {
@@ -394,10 +397,19 @@ pub fn create_staff(file_name string) !Staff {
 				`L` {
 					i++ // T
 					i++ // :
+					mut length := ''
+					mut first := f32(0.0)
 					for file[i] != `\n` {
-						group.length += file[i].ascii_str()
+						if file[i] != `/` {
+							length += file[i].ascii_str()
+						} else {
+							first = length.f32()
+							length = ''
+						}
 						i++
 					}
+					group.length = first / length.f32()
+					
 					i++ // \n
 				}
 				`K` {
