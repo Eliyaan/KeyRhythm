@@ -92,47 +92,90 @@ mut:
 	px_height f32 = 100.0
 }
 
+pub struct ProcessedStaff {
+	title string
+	key string
+	composer string
+}
+
+pub struct ProcessedLine {
+	px_height f32
+	// coords of top left
+	x f32
+	y f32
+	meter string
+	bars []ProcessedBars
+	notes []ProcessedNotes
+}
+
+pub struct ProcessedNotes {
+	x f32
+	y f32
+	pitch Pitches
+	len Lengths
+	nb_dots int
+}
+
+pub struct ProcessedBars {
+	x f32
+	y f32
+	bar Bars
+}
+
 const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
-fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_length f32) (f32, f32, int) {
+fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f32) (f32, f32, int) {
+	mut pnote := ProcessedNotes{
+		x: x
+		y: y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
+		pitch: n.pitch
+	}
+
 	px_whole_length := f32(150)
 	true_factor := if n.divide {
 		g_length / f32(n.factor)
 	} else {
 		g_length * f32(n.factor)
 	}
-	n_length := px_whole_length * true_factor
-	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
-
 	factor_log2 := math.log2(true_factor * 2)
 	rounded_log := math.round(factor_log2)
+	rounded_power_of2 := math.pow(2.0, int(math.log2(f64(n.factor))))
 	if rounded_log != factor_log2 {
 		// for notes with dots after
-		normalized_len := f32(n.factor) / f32(math.pow(2.0, int(math.log2(f64(n.factor))))) // 1.5 or 1.75
-		if normalized_len >= 1.5 {
-			ctx.draw_circle_filled(x + 2 * radius, note_y, 2, black)
+		normalized_len := f64(n.factor) / rounded_power_of2 // 1.5 or 1.75
+		if normalized_len == 1.5 {
+			note.nb_dots = 1
 		}
 		if normalized_len == 1.75 {
-			ctx.draw_circle_filled(x + 4 * radius, note_y, 2, black)
+			note.nb_dots = 2
 		}
 	}
+	
+	note.len = match true_factor {
+		2.0 { .doublewhole }
+		1.0 { .whole }
+		0.5 { .half }
+		0.25 { .quarter }
+		0.125 { .eighth }
+		0.0625 { .sixteenth }
+		0.03125 { .thirtysecond }
+		else {
+			println('Unsupported note length ${n} ${true_factor}')
+		}
+	}
+
+	n_length := px_whole_length * true_factor
+	next_x := x + n_length
+
+	pline.notes << note
+
+	// old
 	mut nb_tails := -int(math.ceil(factor_log2))
 	if true_factor < 1.0 && nb_tails <= 0 {
 		nb_tails = 1
 	}
 
-	if true_factor < 0.5 {
-		ctx.draw_circle_filled(x, note_y, radius, black)
-	} else {
-		if true_factor >= 2.0 {
-			ctx.draw_square_empty(x - radius, note_y - radius, 2 * radius, black)
-		} else {
-			ctx.draw_circle_empty(x, note_y, radius, black)
-		}
-	}
-
-	next_x := x + n_length
 	return next_x, note_y, nb_tails
 }
 
