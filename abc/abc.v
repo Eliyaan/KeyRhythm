@@ -74,8 +74,8 @@ mut:
 
 struct Group {
 mut:
-	length    f32 = 1.0/8.0
-//	left_bar  Bars
+	length f32 = 1.0 / 8.0
+	//	left_bar  Bars
 	right_bar Bars
 	beams     []Beam
 	new_line  bool
@@ -84,8 +84,8 @@ mut:
 
 pub struct Staff {
 mut:
-	title     string
-//	meter     string
+	title string
+	//	meter     string
 	key       string
 	composer  string
 	groups    []Group
@@ -110,7 +110,11 @@ fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_le
 	}
 
 	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
-	ctx.draw_circle_filled(x, note_y, radius, black)
+	if true_factor < 0.5 {
+		ctx.draw_circle_filled(x, note_y, radius, black)
+	} else {
+		ctx.draw_circle_empty(x, note_y, radius, black)
+	}
 
 	next_x := x + n_length
 	return next_x, note_y, nb_tails
@@ -163,6 +167,9 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_le
 					ctx.draw_line(tail_x, note_y, tail_x, note_y - tail_size, black)
 				}
 			}
+			if nb_tails >= 2 {
+				ctx.draw_text(int(old_x), int(note_y), nb_tails.str(), gx.TextCfg{})
+			}
 		}
 	}
 
@@ -191,10 +198,10 @@ fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_s
 
 	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
 	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
-	ctx.draw_line(next_x, y_top, next_x, y_bot, black) 
+	ctx.draw_line(next_x, y_top, next_x, y_bot, black)
 	if g.right_bar == .double {
 		next_x += 5
-		ctx.draw_line(next_x, y_top, next_x, y_bot, black) 
+		ctx.draw_line(next_x, y_top, next_x, y_bot, black)
 	}
 	next_x += 2 * radius
 
@@ -210,8 +217,7 @@ pub fn (s Staff) draw(ctx gg.Context, x f32, y f32, x_end f32) {
 	ctx.draw_text(int(x), int(y), s.title, gx.TextCfg{})
 	mut next_x := x
 	// top of the staff
-	mut next_y := y - s.px_height  // first group is new line
-
+	mut next_y := y - s.px_height // first group is new line
 
 	for g in s.groups {
 		next_x, next_y = g.draw(ctx, next_x, next_y, x_end, s.px_height, x)
@@ -224,7 +230,9 @@ pub fn create_staff(file_name string) !Staff {
 	mut staff := Staff{}
 	mut note := Note{}
 	mut beam := Beam{}
-	mut group := Group{new_line: true}
+	mut group := Group{
+		new_line: true
+	}
 
 	mut i := 0
 	for i < file.len {
@@ -382,7 +390,7 @@ pub fn create_staff(file_name string) !Staff {
 					m := group.meter
 					group = Group{
 						length: l
-						meter: m
+						meter:  m
 					}
 					i++
 				}
@@ -434,7 +442,7 @@ pub fn create_staff(file_name string) !Staff {
 						i++
 					}
 					group.length = first / length.f32()
-					
+
 					i++ // \n
 				}
 				`K` {

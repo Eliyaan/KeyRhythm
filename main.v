@@ -21,7 +21,7 @@ fn main() {
 	*/
 
 	mut app := &App{}
-	app.staff = abc.create_staff('tunes/notes.abc')!
+	app.staff = abc.create_staff('tunes/lengths.abc')!
 	app.ctx = gg.new_context(
 		create_window: true
 		user_data:     app
