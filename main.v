@@ -3,8 +3,8 @@ import abc
 
 struct App {
 mut:
-	ctx   &gg.Context = unsafe { nil }
-	staff abc.Staff
+	ctx    &gg.Context = unsafe { nil }
+	pstaff abc.ProcessedStaff
 }
 
 fn main() {
@@ -21,7 +21,8 @@ fn main() {
 	*/
 
 	mut app := &App{}
-	app.staff = abc.create_staff('tunes/lengths.abc')!
+	staff = abc.create_staff('tunes/lengths.abc')!
+	app.pstaff = process(staff, 50.0, 50.0, 800.0)
 	app.ctx = gg.new_context(
 		create_window: true
 		user_data:     app
@@ -36,7 +37,7 @@ fn main() {
 
 fn on_frame(mut app App) {
 	app.ctx.begin()
-	app.staff.draw(app.ctx, 50.0, 50.0, 800.0)
+
 	app.ctx.end()
 }
 

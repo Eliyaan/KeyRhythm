@@ -93,42 +93,54 @@ mut:
 }
 
 pub struct ProcessedStaff {
-	title string
-	key string
+	title    string
+	key      string
 	composer string
+	plines   []ProcessedLine
 }
 
 pub struct ProcessedLine {
 	px_height f32
 	// coords of top left
-	x f32
-	y f32
-	meter string
-	bars []ProcessedBars
-	notes []ProcessedNotes
+	x       f32
+	x_end   f32
+	y_lines []f32
+	meter   string
+	bars    []ProcessedBar
+	notes   []ProcessedNote
+	slines  []SupportLine
 }
 
-pub struct ProcessedNotes {
-	x f32
-	y f32
-	pitch Pitches
-	len Lengths
-	nb_dots int
+pub struct ProcessedNote {
+	x            f32
+	y            f32
+	pitch        Pitches
+	len          Lengths
+	nb_dots      int
+	tail_x       f32
+	tail_start_y f32
+	tail_end_y   f32
 }
 
-pub struct ProcessedBars {
+pub struct SupportLine {
 	x f32
 	y f32
-	bar Bars
+}
+
+pub struct ProcessedBar {
+	x     f32
+	y_top f32
+	y_bot f32
+	bar   Bars
 }
 
 const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
 fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f32) (f32, f32, int) {
-	mut pnote := ProcessedNotes{
-		x: x
-		y: y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
+	mut pnote := ProcessedNote{
+		x:     x
+		y:     y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 		pitch: n.pitch
 	}
 
@@ -151,15 +163,29 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 			note.nb_dots = 2
 		}
 	}
-	
+
 	note.len = match true_factor {
-		2.0 { .doublewhole }
-		1.0 { .whole }
-		0.5 { .half }
-		0.25 { .quarter }
-		0.125 { .eighth }
-		0.0625 { .sixteenth }
-		0.03125 { .thirtysecond }
+		2.0 {
+			.doublewhole
+		}
+		1.0 {
+			.whole
+		}
+		0.5 {
+			.half
+		}
+		0.25 {
+			.quarter
+		}
+		0.125 {
+			.eighth
+		}
+		0.0625 {
+			.sixteenth
+		}
+		0.03125 {
+			.thirtysecond
+		}
 		else {
 			println('Unsupported note length ${n} ${true_factor}')
 		}
@@ -170,7 +196,6 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 
 	pline.notes << note
 
-	// old
 	mut nb_tails := -int(math.ceil(factor_log2))
 	if true_factor < 1.0 && nb_tails <= 0 {
 		nb_tails = 1
@@ -179,7 +204,7 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 	return next_x, note_y, nb_tails
 }
 
-fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_length f32) f32 {
+fn (b Beam) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f32) f32 {
 	mut next_x := x
 	mut note_y := y
 	mut nb_tails := 0
@@ -192,42 +217,39 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_le
 
 	for n in b.notes {
 		old_x = next_x
-		next_x, note_y, nb_tails = n.draw(ctx, next_x, y, x_end, staff_heigth, g_length)
+		next_x, note_y, nb_tails = n.process(mut pline, next_x, y, x_end, g_length)
 		if int(n.pitch) >= int(Pitches._b) {
 			for i in 0 .. int(n.pitch) - int(Pitches.f) - 1 { // little lines
 				if i % 2 == 0 {
-					line_y := y_top - f32(i) / f32(nb_pitches) * staff_heigth
-					ctx.draw_line(old_x - 1.5 * radius, line_y, old_x + 1.5 * radius,
-						line_y, black)
+					pline.slines << SupportLine{old_x - 1.5 * radius, y_top - f32(i) / f32(nb_pitches) * staff_heigth}
 				}
 			}
 		} else {
 			for i in 0 .. int(Pitches._e) - int(n.pitch) - 1 { // little lines
 				if i % 2 == 0 {
-					line_y := y_bot + f32(i) / f32(nb_pitches) * staff_heigth
-					ctx.draw_line(old_x - 1.5 * radius, line_y, old_x + 1.5 * radius,
-						line_y, black)
+					pline.slines << SupportLine{old_x - 1.5 * radius, y_bot - f32(i) / f32(nb_pitches) * staff_heigth}
 				}
 			}
 		}
 		if nb_tails >= 1 {
 			if int(n.pitch) >= int(Pitches._b) {
-				tail_x := old_x - radius / 2
+				pline.notes[pline.notes.len - 1].tail_x = old_x - radius / 2
 				if int(n.pitch) >= int(Pitches.b) {
-					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+					pline.notes[pline.notes.len - 1].tail_start_y = note_y
+					pline.notes[pline.notes.len - 1].tail_end_y = y_middle
 				} else {
-					ctx.draw_line(tail_x, note_y, tail_x, note_y + tail_size, black)
+					pline.notes[pline.notes.len - 1].tail_start_y = note_y
+					pline.notes[pline.notes.len - 1].tail_end_y = note_y + tail_size
 				}
 			} else {
-				tail_x := old_x + radius / 2
-				if int(n.pitch) <= int(Pitches._bb) {
-					ctx.draw_line(tail_x, note_y, tail_x, y_middle, black)
+				pline.notes[pline.notes.len - 1].tail_x = old_x + radius / 2
+				if int(n.pitch) >= int(Pitches.b) {
+					pline.notes[pline.notes.len - 1].tail_start_y = note_y
+					pline.notes[pline.notes.len - 1].tail_end_y = y_middle
 				} else {
-					ctx.draw_line(tail_x, note_y, tail_x, note_y - tail_size, black)
+					pline.notes[pline.notes.len - 1].tail_start_y = note_y
+					pline.notes[pline.notes.len - 1].tail_end_y = note_y - tail_size
 				}
-			}
-			if nb_tails >= 2 {
-				ctx.draw_text(int(old_x), int(note_y), nb_tails.str(), gx.TextCfg{})
 			}
 		}
 	}
@@ -235,52 +257,60 @@ fn (b Beam) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_le
 	return next_x
 }
 
-fn (g Group) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, x_start f32) (f32, f32) {
+fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_heigth f32, x_start f32) (f32, f32) {
 	mut next_x := x
 	mut next_y := y
 	if g.new_line {
 		next_y += staff_heigth
 		next_x = x_start
+		pstaff.plines << ProcessedLine{
+			meter:     g.meter
+			px_height: staff_heigth
+			x:         next_x
+			y:         next_y
+		}
+		for p in staff_lines {
+			y_line := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
+			pstaff.plines[pstaff.plines.len - 1] << y_line
+		}
 	}
 	old_x := next_x
 
 	if g.new_line {
-		ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
+		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
 		next_x += 50.0
-		ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gx.TextCfg{})
+		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gx.TextCfg{})
 		next_x += 50.0
 	}
 
 	for b in g.beams {
-		next_x = b.draw(ctx, next_x, next_y, x_end, staff_heigth, g.length)
+		next_x = b.process(pstaff.plines[pstaff.plines.len - 1], next_x, next_y, x_end,
+			staff_heigth, g.length)
 	}
 
 	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
 	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
+	pstaff.plines[pstaff.plines.len - 1].bars << ProcessedBar{next_x, y_top, y_bot, g.right_bar}
 	ctx.draw_line(next_x, y_top, next_x, y_bot, black)
-	if g.right_bar == .double {
-		next_x += 5
-		ctx.draw_line(next_x, y_top, next_x, y_bot, black)
-	}
-	next_x += 2 * radius
+	next_x += 4 * radius
 
-	for p in staff_lines {
-		line_y := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
-		ctx.draw_line(old_x - 2 * radius, line_y, next_x, line_y, black)
-	}
+	pstaff.plines[pstaff.plines.len - 1].x_end = next_x
 
 	return next_x, next_y
 }
 
-pub fn (s Staff) draw(ctx gg.Context, x f32, y f32, x_end f32) {
-	ctx.draw_text(int(x), int(y), s.title, gx.TextCfg{})
+pub fn process(s Staff, x f32, y f32, x_end f32) ProcessedStaff {
+	mut p := ProcessedStaff{
+		title: s.title
+	}
 	mut next_x := x
 	// top of the staff
 	mut next_y := y - s.px_height // first group is new line
 
 	for g in s.groups {
-		next_x, next_y = g.draw(ctx, next_x, next_y, x_end, s.px_height, x)
+		next_x, next_y = g.process(mut p, next_x, next_y, x_end, s.px_height, x)
 	}
+	return p
 }
 
 pub fn create_staff(file_name string) !Staff {
