@@ -96,24 +96,40 @@ const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
 fn (n Note) draw(ctx gg.Context, x f32, y f32, x_end f32, staff_heigth f32, g_length f32) (f32, f32, int) {
-	px_whole_length := f32(120)
+	px_whole_length := f32(150)
 	true_factor := if n.divide {
 		g_length / f32(n.factor)
 	} else {
 		g_length * f32(n.factor)
 	}
 	n_length := px_whole_length * true_factor
+	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 
-	mut nb_tails := -int(math.round(math.log2(true_factor * 2)))
-	if nb_tails == 0 {
+	factor_log2 := math.log2(true_factor * 2)
+	rounded_log := math.round(factor_log2)
+	if rounded_log != factor_log2 {
+		// for notes with dots after
+		normalized_len := f32(n.factor) / f32(math.pow(2.0, int(math.log2(f64(n.factor))))) // 1.5 or 1.75
+		if normalized_len >= 1.5 {
+			ctx.draw_circle_filled(x + 2 * radius, note_y, 2, black)
+		}
+		if normalized_len == 1.75 {
+			ctx.draw_circle_filled(x + 4 * radius, note_y, 2, black)
+		}
+	}
+	mut nb_tails := -int(math.ceil(factor_log2))
+	if true_factor < 1.0 && nb_tails <= 0 {
 		nb_tails = 1
 	}
 
-	note_y := y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
 	if true_factor < 0.5 {
 		ctx.draw_circle_filled(x, note_y, radius, black)
 	} else {
-		ctx.draw_circle_empty(x, note_y, radius, black)
+		if true_factor >= 2.0 {
+			ctx.draw_square_empty(x - radius, note_y - radius, 2 * radius, black)
+		} else {
+			ctx.draw_circle_empty(x, note_y, radius, black)
+		}
 	}
 
 	next_x := x + n_length
