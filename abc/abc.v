@@ -93,6 +93,7 @@ mut:
 }
 
 pub struct ProcessedStaff {
+mut:
 	title    string
 	key      string
 	composer string
@@ -100,10 +101,12 @@ pub struct ProcessedStaff {
 }
 
 pub struct ProcessedLine {
+mut:
 	px_height f32
 	// coords of top left
 	x       f32
 	x_end   f32
+	y       f32
 	y_lines []f32
 	meter   string
 	bars    []ProcessedBar
@@ -112,6 +115,7 @@ pub struct ProcessedLine {
 }
 
 pub struct ProcessedNote {
+mut:
 	x            f32
 	y            f32
 	pitch        Pitches
@@ -123,11 +127,13 @@ pub struct ProcessedNote {
 }
 
 pub struct SupportLine {
+mut:
 	x f32
 	y f32
 }
 
 pub struct ProcessedBar {
+mut:
 	x     f32
 	y_top f32
 	y_bot f32
@@ -138,9 +144,10 @@ const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
 fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f32) (f32, f32, int) {
+	note_y := y + pline.px_height - f32(int(n.pitch)) / f32(nb_pitches) * pline.px_height
 	mut pnote := ProcessedNote{
 		x:     x
-		y:     y + staff_heigth - f32(int(n.pitch)) / f32(nb_pitches) * staff_heigth
+		y:     note_y 
 		pitch: n.pitch
 	}
 
@@ -157,14 +164,14 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 		// for notes with dots after
 		normalized_len := f64(n.factor) / rounded_power_of2 // 1.5 or 1.75
 		if normalized_len == 1.5 {
-			note.nb_dots = 1
+			pnote.nb_dots = 1
 		}
 		if normalized_len == 1.75 {
-			note.nb_dots = 2
+			pnote.nb_dots = 2
 		}
 	}
 
-	note.len = match true_factor {
+	pnote.len = match true_factor {
 		2.0 {
 			.doublewhole
 		}
@@ -187,14 +194,15 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 			.thirtysecond
 		}
 		else {
-			println('Unsupported note length ${n} ${true_factor}')
+			println('Unsupported note length ${n} ${true_factor}');
+			.quarter
 		}
 	}
 
 	n_length := px_whole_length * true_factor
 	next_x := x + n_length
 
-	pline.notes << note
+	pline.notes << pnote
 
 	mut nb_tails := -int(math.ceil(factor_log2))
 	if true_factor < 1.0 && nb_tails <= 0 {
@@ -210,10 +218,10 @@ fn (b Beam) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 	mut nb_tails := 0
 	mut old_x := x
 
-	tail_size := staff_heigth / f32(nb_pitches) * 7
-	y_middle := y + staff_heigth / f32(nb_pitches) * 15
-	y_top := y + staff_heigth / f32(nb_pitches) * 9
-	y_bot := y + staff_heigth / f32(nb_pitches) * 21
+	tail_size := pline.px_height / f32(nb_pitches) * 7
+	y_middle := y + pline.px_height / f32(nb_pitches) * 15
+	y_top := y + pline.px_height / f32(nb_pitches) * 9
+	y_bot := y + pline.px_height / f32(nb_pitches) * 21
 
 	for n in b.notes {
 		old_x = next_x
@@ -221,13 +229,13 @@ fn (b Beam) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 		if int(n.pitch) >= int(Pitches._b) {
 			for i in 0 .. int(n.pitch) - int(Pitches.f) - 1 { // little lines
 				if i % 2 == 0 {
-					pline.slines << SupportLine{old_x - 1.5 * radius, y_top - f32(i) / f32(nb_pitches) * staff_heigth}
+					pline.slines << SupportLine{old_x - 1.5 * radius, y_top - f32(i) / f32(nb_pitches) * pline.px_height}
 				}
 			}
 		} else {
 			for i in 0 .. int(Pitches._e) - int(n.pitch) - 1 { // little lines
 				if i % 2 == 0 {
-					pline.slines << SupportLine{old_x - 1.5 * radius, y_bot - f32(i) / f32(nb_pitches) * staff_heigth}
+					pline.slines << SupportLine{old_x - 1.5 * radius, y_bot - f32(i) / f32(nb_pitches) * pline.px_height}
 				}
 			}
 		}
@@ -271,10 +279,9 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 		}
 		for p in staff_lines {
 			y_line := next_y + staff_heigth - f32(int(p)) / f32(nb_pitches) * staff_heigth
-			pstaff.plines[pstaff.plines.len - 1] << y_line
+			pstaff.plines[pstaff.plines.len - 1].y_lines << y_line
 		}
 	}
-	old_x := next_x
 
 	if g.new_line {
 		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
@@ -284,14 +291,13 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 	}
 
 	for b in g.beams {
-		next_x = b.process(pstaff.plines[pstaff.plines.len - 1], next_x, next_y, x_end,
-			staff_heigth, g.length)
+		next_x = b.process(mut pstaff.plines[pstaff.plines.len - 1], next_x, next_y, x_end,
+			g.length)
 	}
 
 	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
 	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
 	pstaff.plines[pstaff.plines.len - 1].bars << ProcessedBar{next_x, y_top, y_bot, g.right_bar}
-	ctx.draw_line(next_x, y_top, next_x, y_bot, black)
 	next_x += 4 * radius
 
 	pstaff.plines[pstaff.plines.len - 1].x_end = next_x
