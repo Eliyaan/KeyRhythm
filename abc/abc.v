@@ -143,11 +143,27 @@ mut:
 const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
+pub fn (pl ProcessedLine) draw(ctx gg.Context) {
+	for y in pl.y_lines {
+		ctx.draw_line(pl.x, f32(int(y)) - 0.5, pl.x_end, f32(int(y)) - 0.5, black)
+	}
+	for n in pl.notes {
+		ctx.draw_circle_filled(n.x, f32(int(n.y)) - 0.5, radius, black)	
+		ctx.draw_line(n.x, n.tail_start_y, n.x, n.tail_end_y, black)
+	}
+}
+
+pub fn (ps ProcessedStaff) draw(ctx gg.Context) {
+	for pl in ps.plines {
+		pl.draw(ctx)
+	}
+}
+
 fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f32) (f32, f32, int) {
 	note_y := y + pline.px_height - f32(int(n.pitch)) / f32(nb_pitches) * pline.px_height
 	mut pnote := ProcessedNote{
 		x:     x
-		y:     note_y 
+		y:     note_y
 		pitch: n.pitch
 	}
 
@@ -171,32 +187,23 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 		}
 	}
 
-	pnote.len = match true_factor {
-		2.0 {
+	pnote.len = if true_factor >= 2.0 {
 			.doublewhole
-		}
-		1.0 {
+	} else if true_factor >= 1.0 {
 			.whole
-		}
-		0.5 {
+	} else if true_factor >= 0.5 {
 			.half
-		}
-		0.25 {
+	} else if true_factor >= 0.25 {
 			.quarter
-		}
-		0.125 {
+	} else if true_factor >= 0.125 {
 			.eighth
-		}
-		0.0625 {
+	} else if true_factor >= 0.0625 {
 			.sixteenth
-		}
-		0.03125 {
+	} else if true_factor >= 0.03125 {
 			.thirtysecond
-		}
-		else {
-			println('Unsupported note length ${n} ${true_factor}');
-			.quarter
-		}
+	} else {
+		println('Unsupported note length ${n} ${true_factor}')
+		Lengths.quarter
 	}
 
 	n_length := px_whole_length * true_factor

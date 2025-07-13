@@ -37,7 +37,7 @@ fn main() {
 
 fn on_frame(mut app App) {
 	app.ctx.begin()
-
+	app.pstaff.draw(app.ctx)
 	app.ctx.end()
 }
 
