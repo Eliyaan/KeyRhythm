@@ -135,16 +135,16 @@ pub struct ProcessedLine {
 pub mut:
 	px_height f32
 	// coords of top left
-	x       f32
-	x_end   f32
-	y       f32
-	y_lines []f32
-	meter   string
-	bars    []ProcessedBar
-	notes   []ProcessedNote
-	slines  []SupportLine
+	x             f32
+	x_end         f32
+	y             f32
+	y_lines       []f32
+	meter         string
+	bars          []ProcessedBar
+	notes         []ProcessedNote
+	slines        []SupportLine
 	treble_x_size f32 = 50.0
-	meter_x_size f32 = 50.0
+	meter_x_size  f32 = 50.0
 }
 
 pub struct ProcessedNote {
@@ -181,7 +181,7 @@ pub fn (pl ProcessedLine) draw(ctx gg.Context) {
 		ctx.draw_line(pl.x, f32(int(y)) - 0.5, pl.x_end, f32(int(y)) - 0.5, black)
 	}
 	for n in pl.notes {
-		ctx.draw_circle_filled(n.x, f32(int(n.y)) - 0.5, radius, black)	
+		ctx.draw_circle_filled(n.x, f32(int(n.y)) - 0.5, radius, black)
 		ctx.draw_line(n.x, n.tail_start_y, n.x, n.tail_end_y, black)
 	}
 }
@@ -221,19 +221,19 @@ fn (n Note) process(mut pline ProcessedLine, x f32, y f32, x_end f32, g_length f
 	}
 
 	pnote.len = if true_factor >= 2.0 {
-			.doublewhole
+		.doublewhole
 	} else if true_factor >= 1.0 {
-			.whole
+		.whole
 	} else if true_factor >= 0.5 {
-			.half
+		.half
 	} else if true_factor >= 0.25 {
-			.quarter
+		.quarter
 	} else if true_factor >= 0.125 {
-			.eighth
+		.eighth
 	} else if true_factor >= 0.0625 {
-			.sixteenth
+		.sixteenth
 	} else if true_factor >= 0.03125 {
-			.thirtysecond
+		.thirtysecond
 	} else {
 		println('Unsupported note length ${n} ${true_factor}')
 		Lengths.quarter
@@ -338,7 +338,7 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
 	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
 	pstaff.plines[pstaff.plines.len - 1].bars << ProcessedBar{next_x, y_top, y_bot, g.right_bar}
-	// next_x += 4 * radius 
+	// next_x += 4 * radius
 
 	pstaff.plines[pstaff.plines.len - 1].x_end = next_x
 
