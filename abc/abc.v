@@ -13,7 +13,7 @@ enum Pitches {
 	_gg
 	_aa
 	_bb
-	_c
+	_c // 60 in midi standard (middle C)
 	_d
 	_e
 	_f
@@ -36,7 +36,38 @@ enum Pitches {
 	bb
 }
 
-const nb_pitches = 28
+pub const midi_to_pitch = {
+	48: Pitches._cc
+	50: Pitches._dd
+	52: Pitches._ee
+	53: Pitches._ff
+	55: Pitches._gg
+	57: Pitches._aa
+	59: Pitches._bb
+	60: Pitches._c
+	62: Pitches._d
+	64: Pitches._e
+	65: Pitches._f
+	67: Pitches._g
+	69: Pitches._a
+	71: Pitches._b
+	72: Pitches.c
+	74: Pitches.d
+	76: Pitches.e
+	77: Pitches.f
+	79: Pitches.g
+	81: Pitches.a
+	83: Pitches.b
+	84: Pitches.cc
+	86: Pitches.dd
+	88: Pitches.ee
+	89: Pitches.ff
+	91: Pitches.gg
+	93: Pitches.aa
+	95: Pitches.bb
+}
+
+pub const nb_pitches = 28
 const staff_lines = [
 	Pitches._e,
 	._g,
@@ -83,7 +114,7 @@ mut:
 }
 
 pub struct Staff {
-mut:
+pub mut:
 	title string
 	//	meter     string
 	key       string
@@ -93,7 +124,7 @@ mut:
 }
 
 pub struct ProcessedStaff {
-mut:
+pub mut:
 	title    string
 	key      string
 	composer string
@@ -101,7 +132,7 @@ mut:
 }
 
 pub struct ProcessedLine {
-mut:
+pub mut:
 	px_height f32
 	// coords of top left
 	x       f32
@@ -112,10 +143,12 @@ mut:
 	bars    []ProcessedBar
 	notes   []ProcessedNote
 	slines  []SupportLine
+	treble_x_size f32 = 50.0
+	meter_x_size f32 = 50.0
 }
 
 pub struct ProcessedNote {
-mut:
+pub mut:
 	x            f32
 	y            f32
 	pitch        Pitches
@@ -127,20 +160,20 @@ mut:
 }
 
 pub struct SupportLine {
-mut:
+pub mut:
 	x f32
 	y f32
 }
 
 pub struct ProcessedBar {
-mut:
+pub mut:
 	x     f32
 	y_top f32
 	y_bot f32
 	bar   Bars
 }
 
-const radius = f32(4)
+pub const radius = f32(4)
 const black = gg.Color{0, 0, 0, 255}
 
 pub fn (pl ProcessedLine) draw(ctx gg.Context) {
@@ -292,9 +325,9 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 
 	if g.new_line {
 		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
-		next_x += 50.0
+		next_x += pstaff.plines[pstaff.plines.len - 1].treble_x_size
 		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gx.TextCfg{})
-		next_x += 50.0
+		next_x += pstaff.plines[pstaff.plines.len - 1].meter_x_size
 	}
 
 	for b in g.beams {
@@ -305,7 +338,7 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 	y_top := next_y + staff_heigth / f32(nb_pitches) * 11
 	y_bot := next_y + staff_heigth / f32(nb_pitches) * 19
 	pstaff.plines[pstaff.plines.len - 1].bars << ProcessedBar{next_x, y_top, y_bot, g.right_bar}
-	next_x += 4 * radius
+	// next_x += 4 * radius 
 
 	pstaff.plines[pstaff.plines.len - 1].x_end = next_x
 
