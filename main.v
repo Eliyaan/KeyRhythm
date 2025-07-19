@@ -1,6 +1,5 @@
 import gg
 import tsf
-import time
 import sokol.audio
 import os
 import abc
@@ -63,22 +62,13 @@ fn main() {
 		panic('Could not load soundfont')
 	}
 	// Set the rendering output mode to 44.1khz and -10 decibel gain
-	app.tiny_sound_font.set_output(.stereo_interleaved, 44100, -10)
-
-	// Start two notes before starting the audio playback
-	app.tiny_sound_font.note_on(0, 48, 1) // C2
-	app.tiny_sound_font.note_on(0, 52, 1) // E2
+	app.tiny_sound_font.set_output(.stereo_interleaved, 44100, -3)
 
 	audio.setup(
 		stream_userdata_cb: audio_callback
 		num_channels:       2
 		user_data:          app
 	)
-
-	time.sleep(1000 * time.millisecond)
-	app.tiny_sound_font.note_off(0, 52) // E2
-	time.sleep(1000 * time.millisecond)
-	app.tiny_sound_font.note_off(0, 48) // C2
 
 	app.init_staff_select()
 	app.ctx = gg.new_context(
@@ -109,7 +99,11 @@ fn (mut app App) record_keys() {
 				note_y := current_line.y + current_line.px_height - f32(int(abc.midi_to_pitch[packet[1]])) / f32(abc.nb_pitches) * current_line.px_height
 				app.hits_y << note_y
 			}
-			println(packet)
+		}
+		if packet[0] == 154 {
+			app.tiny_sound_font.note_on(0, packet[1], 1)
+		} else if packet[0] == 138 {
+			app.tiny_sound_font.note_off(0, packet[1])
 		}
 	}
 }
