@@ -606,5 +606,8 @@ pub fn create_staff(file_name string) !Staff {
 			}
 		}
 	}
+
+	staff.groups << group
+
 	return staff
 }

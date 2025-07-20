@@ -17,6 +17,7 @@ enum State {
 	game
 	play
 	staff_select
+	quit
 }
 
 struct App {
@@ -54,6 +55,7 @@ fn main() {
 	app.init_staff_select()
 	app.ctx = gg.new_context(
 		create_window: true
+		fullscreen:    true
 		user_data:     app
 		frame_fn:      on_frame
 		event_fn:      on_event
@@ -62,17 +64,22 @@ fn main() {
 	)
 
 	app.ctx.run()
+	app.state = .quit
 }
 
 fn (mut app App) record_keys() {
 	midi_device := '/dev/midi1'
 	mut packet := [3]u8{}
-	mut file := os.open(midi_device) or { panic(err) }
+	mut file := os.open(midi_device) or {
+		println(err)
+		return
+	}
 	defer { file.close() }
 	for app.state == .play {
 		packet[0] = file.read_u8() or { panic(err) }
 		packet[1] = file.read_u8() or { panic(err) }
 		packet[2] = file.read_u8() or { panic(err) }
+		println(os.inode(midi_device))
 		if app.state == .play {
 			if packet[0] == 154 {
 				app.hits_x << app.progress
@@ -140,9 +147,14 @@ fn on_event(e &gg.Event, mut app App) {
 							return
 						}
 						app.pstaff = abc.process(staff, 50.0, 50.0, 800.0)
+						println('Processed staff')
 						spawn app.record_keys()
 						app.line_nb = 0
-						current_line := app.pstaff.plines[app.line_nb]
+						current_line := app.pstaff.plines[app.line_nb] or {
+							println('Unsupported abc file')
+							app.init_staff_select()
+							return
+						}
 						app.progress = current_line.x
 						app.speed = 1.0
 						break
@@ -169,7 +181,7 @@ fn on_event(e &gg.Event, mut app App) {
 
 fn (mut app App) draw_hits() {
 	for i, h_x in app.hits_x {
-		app.ctx.draw_circle_empty(h_x, app.hits_y[i], abc.radius, gg.Color{200, 0, 0, 255})
+		app.ctx.draw_circle_empty(h_x, app.hits_y[i] or { continue }, abc.radius, gg.Color{200, 0, 0, 255})
 	}
 }
 
