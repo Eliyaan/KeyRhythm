@@ -3,7 +3,6 @@ module abc
 import math
 import os
 import gg
-import gx
 
 enum Pitches {
 	_cc
@@ -324,9 +323,9 @@ fn (g Group) process(mut pstaff ProcessedStaff, x f32, y f32, x_end f32, staff_h
 	}
 
 	if g.new_line {
-		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gx.TextCfg{})
+		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), 'treble', gg.TextCfg{})
 		next_x += pstaff.plines[pstaff.plines.len - 1].treble_x_size
-		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gx.TextCfg{})
+		// ctx.draw_text(int(next_x), int(next_y + staff_heigth / 2), g.meter, gg.TextCfg{})
 		next_x += pstaff.plines[pstaff.plines.len - 1].meter_x_size
 	}
 

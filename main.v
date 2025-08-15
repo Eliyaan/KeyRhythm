@@ -1,5 +1,4 @@
 import gg
-import gx
 import tsf
 import time
 import sokol.audio
@@ -30,7 +29,7 @@ enum State {
 struct App {
 mut:
 	ctx             &gg.Context = unsafe { nil }
-	txtcfg          gx.TextCfg
+	txtcfg          gg.TextCfg
 	tiny_sound_font &tsf.Tsf
 	midi            os.File // midi file
 	pstaff          abc.ProcessedStaff
@@ -78,8 +77,8 @@ fn main() {
 	)
 
 	app.ctx.set_text_style('0xProtoNerdFontMono', '0xProtoNerdFontMono-Regular.ttf', font_size,
-		gx.black, int(gx.HorizontalAlign.left), int(gx.VerticalAlign.middle))
-	app.txtcfg = gx.TextCfg{gx.black, font_size, .left, .middle, 2000, '', false, false, false}
+		gg.black, int(gg.HorizontalAlign.left), int(gg.VerticalAlign.middle))
+	app.txtcfg = gg.TextCfg{gg.black, font_size, .left, .middle, 2000, '', false, false, false}
 	app.ctx.run()
 	app.state = .quit
 }
